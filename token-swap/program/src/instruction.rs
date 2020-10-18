@@ -49,6 +49,15 @@ pub enum SwapInstruction {
         minimum_amount_out: u64,
     },
 
+    /// DoubleSwap
+    DoubleSwap {
+        /// amount_in
+        amount_in: u64,
+
+        /// minimum_amount_out
+        minimum_amount_out: u64,
+    },
+
     ///   Deposit some tokens into the pool.  The output is a "pool" token representing ownership
     ///   into the pool. Inputs are converted to the current ratio.
     ///
@@ -136,6 +145,14 @@ impl SwapInstruction {
                     minimum_token_b_amount,
                 }
             }
+            4 => {
+                let (amount_in, rest) = Self::unpack_u64(rest)?;
+                let (minimum_amount_out, _rest) = Self::unpack_u64(rest)?;
+                Self::DoubleSwap {
+                    amount_in,
+                    minimum_amount_out,
+                }
+            }
             _ => return Err(SwapError::InvalidInstruction.into()),
         })
     }
@@ -195,6 +212,14 @@ impl SwapInstruction {
                 buf.extend_from_slice(&pool_token_amount.to_le_bytes());
                 buf.extend_from_slice(&minimum_token_a_amount.to_le_bytes());
                 buf.extend_from_slice(&minimum_token_b_amount.to_le_bytes());
+            }
+            Self::DoubleSwap {
+                amount_in,
+                minimum_amount_out,
+            } => {
+                buf.push(4);
+                buf.extend_from_slice(&amount_in.to_le_bytes());
+                buf.extend_from_slice(&minimum_amount_out.to_le_bytes());
             }
         }
         buf
@@ -325,6 +350,42 @@ pub fn withdraw(
 
 /// Creates a 'swap' instruction.
 pub fn swap(
+    program_id: &Pubkey,
+    token_program_id: &Pubkey,
+    swap_pubkey: &Pubkey,
+    authority_pubkey: &Pubkey,
+    source_pubkey: &Pubkey,
+    swap_source_pubkey: &Pubkey,
+    swap_destination_pubkey: &Pubkey,
+    destination_pubkey: &Pubkey,
+    amount_in: u64,
+    minimum_amount_out: u64,
+) -> Result<Instruction, ProgramError> {
+    let data = SwapInstruction::Swap {
+        amount_in,
+        minimum_amount_out,
+    }
+    .pack();
+
+    let accounts = vec![
+        AccountMeta::new(*swap_pubkey, false),
+        AccountMeta::new(*authority_pubkey, false),
+        AccountMeta::new(*source_pubkey, false),
+        AccountMeta::new(*swap_source_pubkey, false),
+        AccountMeta::new(*swap_destination_pubkey, false),
+        AccountMeta::new(*destination_pubkey, false),
+        AccountMeta::new(*token_program_id, false),
+    ];
+
+    Ok(Instruction {
+        program_id: *program_id,
+        accounts,
+        data,
+    })
+}
+
+/// Creates a 'double swap' instruction.
+pub fn double_swap(
     program_id: &Pubkey,
     token_program_id: &Pubkey,
     swap_pubkey: &Pubkey,

@@ -5,7 +5,7 @@
 use crate::{
     curve::{ConstantProduct, PoolTokenConverter},
     error::SwapError,
-    instruction::SwapInstruction,
+    instruction::{SwapInstruction, swap},
     state::SwapInfo,
 };
 use num_traits::FromPrimitive;
@@ -138,6 +138,12 @@ impl Processor {
         )
     }
 
+    pub fn swap(
+        swap: &Pubkey
+    ) -> Result<(), ProgramError> {
+        let ix = swap()
+    }
+
     /// Processes an [Initialize](enum.Instruction.html).
     pub fn process_initialize(
         program_id: &Pubkey,
@@ -227,6 +233,88 @@ impl Processor {
 
     /// Processes an [Swap](enum.Instruction.html).
     pub fn process_swap(
+        program_id: &Pubkey,
+        amount_in: u64,
+        minimum_amount_out: u64,
+        accounts: &[AccountInfo],
+    ) -> ProgramResult {
+        let account_info_iter = &mut accounts.iter();
+        let swap_info = next_account_info(account_info_iter)?;
+        let authority_info = next_account_info(account_info_iter)?;
+        let source_info = next_account_info(account_info_iter)?;
+        let swap_source_info = next_account_info(account_info_iter)?;
+        let swap_destination_info = next_account_info(account_info_iter)?;
+        let destination_info = next_account_info(account_info_iter)?;
+        let token_program_info = next_account_info(account_info_iter)?;
+
+        let token_swap = SwapInfo::unpack(&swap_info.data.borrow())?;
+
+        if *authority_info.key != Self::authority_id(program_id, swap_info.key, token_swap.nonce)? {
+            return Err(SwapError::InvalidProgramAddress.into());
+        }
+        if !(*swap_source_info.key == token_swap.token_a
+            || *swap_source_info.key == token_swap.token_b)
+        {
+            return Err(SwapError::IncorrectSwapAccount.into());
+        }
+        if !(*swap_destination_info.key == token_swap.token_a
+            || *swap_destination_info.key == token_swap.token_b)
+        {
+            return Err(SwapError::IncorrectSwapAccount.into());
+        }
+        if *swap_source_info.key == *swap_destination_info.key {
+            return Err(SwapError::InvalidInput.into());
+        }
+        let source_account = Self::unpack_token_account(&swap_source_info.data.borrow())?;
+        let dest_account = Self::unpack_token_account(&swap_destination_info.data.borrow())?;
+
+        let amount_out = if *swap_source_info.key == token_swap.token_a {
+            let mut invariant = ConstantProduct {
+                token_a: source_account.amount,
+                token_b: dest_account.amount,
+                fee_numerator: token_swap.fee_numerator,
+                fee_denominator: token_swap.fee_denominator,
+            };
+            invariant
+                .swap_a_to_b(amount_in)
+                .ok_or(SwapError::CalculationFailure)?
+        } else {
+            let mut invariant = ConstantProduct {
+                token_a: dest_account.amount,
+                token_b: source_account.amount,
+                fee_numerator: token_swap.fee_numerator,
+                fee_denominator: token_swap.fee_denominator,
+            };
+            invariant
+                .swap_b_to_a(amount_in)
+                .ok_or(SwapError::CalculationFailure)?
+        };
+        if amount_out < minimum_amount_out {
+            return Err(SwapError::ExceededSlippage.into());
+        }
+        Self::token_transfer(
+            swap_info.key,
+            token_program_info.clone(),
+            source_info.clone(),
+            swap_source_info.clone(),
+            authority_info.clone(),
+            token_swap.nonce,
+            amount_in,
+        )?;
+        Self::token_transfer(
+            swap_info.key,
+            token_program_info.clone(),
+            swap_destination_info.clone(),
+            destination_info.clone(),
+            authority_info.clone(),
+            token_swap.nonce,
+            amount_out,
+        )?;
+        Ok(())
+    }
+
+    /// Processes an [Double Swap](enum.Instruction.html).
+    pub fn process_double_swap(
         program_id: &Pubkey,
         amount_in: u64,
         minimum_amount_out: u64,
@@ -526,6 +614,13 @@ impl Processor {
                     minimum_token_b_amount,
                     accounts,
                 )
+            }
+            SwapInstruction::DoubleSwap {
+                amount_in,
+                minimum_amount_out,
+            } => {
+                info!("Instruction: DoubleSwap");
+                Self::process_double_swap(program_id, amount_in, minimum_amount_out, accounts)
             }
         }
     }
