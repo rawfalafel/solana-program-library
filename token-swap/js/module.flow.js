@@ -17,9 +17,9 @@ declare module '@solana/spl-token-swap' {
   declare export class TokenSwap {
     constructor(
       connection: Connection,
+      tokenSwap: PublicKey,
       swapProgramId: PublicKey,
       tokenProgramId: PublicKey,
-      tokenSwap: PublicKey,
       poolToken: PublicKey,
       authority: PublicKey,
       tokenAccountA: PublicKey,
@@ -59,15 +59,15 @@ declare module '@solana/spl-token-swap' {
       payer: Account,
       tokenSwapAccount: Account,
       authority: PublicKey,
+      nonce: number,
       tokenAccountA: PublicKey,
       tokenAccountB: PublicKey,
-      tokenPool: PublicKey,
+      poolToken: PublicKey,
       tokenAccountPool: PublicKey,
+      swapProgramId: PublicKey,
       tokenProgramId: PublicKey,
-      nonce: number,
       feeNumerator: number,
       feeDenominator: number,
-      programId: PublicKey,
     ): Promise<TokenSwap>;
 
     swap(
@@ -93,14 +93,9 @@ declare module '@solana/spl-token-swap' {
     ): TransactionInstruction;
 
     deposit(
-      authority: PublicKey,
-      sourceA: PublicKey,
-      sourceB: PublicKey,
-      intoA: PublicKey,
-      intoB: PublicKey,
-      poolToken: PublicKey,
+      userAccountA: PublicKey,
+      userAccountB: PublicKey,
       poolAccount: PublicKey,
-      tokenProgramId: PublicKey,
       poolTokenAmount: number | Numberu64,
       maximumTokenA: number | Numberu64,
       maximumTokenB: number | Numberu64,
@@ -123,14 +118,9 @@ declare module '@solana/spl-token-swap' {
     ): TransactionInstruction;
 
     withdraw(
-      authority: PublicKey,
-      poolMint: PublicKey,
-      sourcePoolAccount: PublicKey,
-      fromA: PublicKey,
-      fromB: PublicKey,
       userAccountA: PublicKey,
       userAccountB: PublicKey,
-      tokenProgramId: PublicKey,
+      poolAccount: PublicKey,
       poolTokenAmount: number | Numberu64,
       minimumTokenA: number | Numberu64,
       minimumTokenB: number | Numberu64,
