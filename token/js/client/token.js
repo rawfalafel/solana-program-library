@@ -14,6 +14,7 @@ import {
   SYSVAR_RENT_PUBKEY,
 } from '@solana/web3.js';
 import type {
+  AccountInfo as Web3AccountInfo,
   Connection,
   Commitment,
   TransactionSignature,
@@ -624,28 +625,12 @@ export class Token {
     return mintInfo;
   }
 
-  /**
-   * Retrieve account information
-   *
-   * @param account Public key of the account
-   */
-  async getAccountInfo(
-    account: PublicKey,
-    commitment?: Commitment,
-  ): Promise<AccountInfo> {
-    const info = await this.connection.getAccountInfo(account, commitment);
-    if (info === null) {
-      throw new Error('Failed to find account');
-    }
-    if (!info.owner.equals(this.programId)) {
-      throw new Error(`Invalid account owner`);
-    }
+  static decodeAccountInfo(info: Web3AccountInfo<any>): AccountInfo {
     if (info.data.length != AccountLayout.span) {
       throw new Error(`Invalid account size`);
     }
 
-    const data = Buffer.from(info.data);
-    const accountInfo = AccountLayout.decode(data);
+    const accountInfo = AccountLayout.decode(info.data);
     accountInfo.mint = new PublicKey(accountInfo.mint);
     accountInfo.owner = new PublicKey(accountInfo.owner);
     accountInfo.amount = u64.fromBuffer(accountInfo.amount);
@@ -675,6 +660,28 @@ export class Token {
       accountInfo.closeAuthority = new PublicKey(accountInfo.closeAuthority);
     }
 
+    return accountInfo;
+  }
+
+  /**
+   * Retrieve account information
+   *
+   * @param account Public key of the account
+   */
+  async getAccountInfo(
+    account: PublicKey,
+    commitment?: Commitment,
+  ): Promise<AccountInfo> {
+    const info = await this.connection.getAccountInfo(account, commitment);
+    if (info === null) {
+      throw new Error('Failed to find account');
+    }
+    if (!info.owner.equals(this.programId)) {
+      throw new Error(`Invalid account owner`);
+    }
+
+    const accountInfo = Token.decodeAccountInfo(info);
+
     if (!accountInfo.mint.equals(this.publicKey)) {
       throw new Error(
         `Invalid account mint: ${JSON.stringify(
@@ -682,6 +689,7 @@ export class Token {
         )} !== ${JSON.stringify(this.publicKey)}`,
       );
     }
+
     return accountInfo;
   }
 

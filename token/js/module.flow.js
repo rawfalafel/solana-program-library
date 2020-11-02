@@ -83,6 +83,7 @@ declare module '@solana/spl-token' {
     ): Promise<PublicKey>;
     createMultisig(m: number, signers: Array<PublicKey>): Promise<PublicKey>;
     getMintInfo(): Promise<MintInfo>;
+    static decodeAccountInfo(data: Web3AccountInfo<any>): AccountInfo;
     getAccountInfo(account: PublicKey): Promise<AccountInfo>;
     getMultisigInfo(multisig: PublicKey): Promise<MultisigInfo>;
     transfer(
