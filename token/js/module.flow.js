@@ -5,7 +5,7 @@
  *
  */
 
-declare module '@solana/spl-token' {
+declare module '@orca-so/spl-token' {
   declare export var TOKEN_PROGRAM_ID;
   declare export class u64 extends BN {
     toBuffer(): Buffer;
