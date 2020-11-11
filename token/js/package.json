@@ -1,6 +1,6 @@
 {
   "name": "@orca-so/spl-token",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "SPL Token JavaScript API",
   "license": "MIT",
   "author": "Solana Maintainers <maintainers@solana.com>",
